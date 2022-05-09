@@ -30,3 +30,9 @@ button{
     border: 1px solid #333;
     background-color: #333;
 }
+.information{
+    color: white;
+    border-radius: 5px;
+    margin: .5rem;
+    padding: 0.5rem;
+}

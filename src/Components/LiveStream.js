@@ -27,7 +27,8 @@ const LiveStream = () => {
        <div style={{ backgroundImage: `url(${background})`, backgroundSize: 'cover', backgroundRepeat: 'no-repeat' }}>
        <Container fluid className="height center">
             <ReactPlayer url={info.LiveStreamUrl} className='border'/>
-            <p>Service Title:{info.LiveStreamTitle}<br/> Online User Count for current Service:{info.OnlineUsersCount}</p>
+            <p className='information border'>Service Title: {info.LiveStreamTitle}</p>
+            <p className='information border'> Online Worshippers Count: {info.OnlineUsersCount}</p>
         </Container>
        </div>
        <Footer />
