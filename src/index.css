@@ -36,3 +36,10 @@ button{
     margin: .5rem;
     padding: 0.5rem;
 }
+.span{
+    color: black;
+    background-color: white;
+    padding: .2rem .4rem;
+    border-radius: 5px;
+    font-weight: 600;
+}
