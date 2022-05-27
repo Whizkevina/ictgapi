@@ -6,6 +6,7 @@ import React, {useEffect, useState} from 'react';
 import ReactPlayer from 'react-player';
 const LiveStream = () => {
     const [info, setInfo] = useState({});
+    //url equals the API link
     const url = `https://ftapp.lfcww.org/api/Dashboard/togglelivestreamstate`;
     const getInfo = async()=>{
       try {
@@ -22,15 +23,18 @@ const LiveStream = () => {
     }, []);
 
     return (
-       
+       //background image
        <div style={{ backgroundImage: `url(${background})`, backgroundSize: 'cover', backgroundRepeat: 'no-repeat' }}>
+        /*import the Navigation component in the LiveStream component*/
         <Navigation />
+        //Create a container for the react video player
        <Container fluid className="height center ">
+         //{info.LiveStreamUrl} and other codes similar to this is gotten from the API
             <ReactPlayer url={info.LiveStreamUrl} className='border' width='70%' height= '80%'/>
             </Container>
             <p className='information'>SERVICE TITLE: <span className='span'>{info.LiveStreamTitle}</span></p>
             <p className='information'> ONLINE WORSHIPPERS COUNT: <span className='span'>{info.OnlineUsersCount}</span></p>
-        
+        //import the Footer component in the LiveStream component
         <Footer />
        </div>
         
