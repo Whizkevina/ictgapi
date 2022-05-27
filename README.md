@@ -11,6 +11,10 @@ This project was built with React and bootstrapped with [Create React App](https
 Runs the app in the development mode.\
 Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
 
+### Deployed Project
+
+- View Deployed Project on Vercel [WinnersAPI](https://winnersapi.vercel.app/)
+
 ## Resources Used In Building this Project
 
 - React, check out the [React documentation](https://reactjs.org/).
@@ -18,7 +22,5 @@ Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
 - React Course [Beginner's Tutorial for React JavaScript Library](https://www.youtube.com/watch?v=bMknfKXIFA8&t=4753s)
 - Full React Tutorial [Netninja](https://www.youtube.com/watch?v=j942wKiXFu8&list=PL4cUxeGkcC9gZD-Tvwfod2gaISzfRiP9d)
 
-### Deployed Project
 
-- View Deployed Project [WinnersAPI](https://winnersapi.vercel.app/)
 
