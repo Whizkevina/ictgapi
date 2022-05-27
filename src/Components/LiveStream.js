@@ -28,8 +28,8 @@ const LiveStream = () => {
        <Container fluid className="height center ">
             <ReactPlayer url={info.LiveStreamUrl} className='border' width='70%' height= '80%'/>
             </Container>
-            <p className='information'>Service Title: <span className='span'>{info.LiveStreamTitle}</span></p>
-            <p className='information'> Online Worshippers Count: <span className='span'>{info.OnlineUsersCount}</span></p>
+            <p className='information'>SERVICE TITLE: <span className='span'>{info.LiveStreamTitle}</span></p>
+            <p className='information'> ONLINE WORSHIPPERS COUNT: <span className='span'>{info.OnlineUsersCount}</span></p>
         
         <Footer />
        </div>
