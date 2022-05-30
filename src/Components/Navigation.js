@@ -2,6 +2,9 @@ import React from 'react';
 import {Navbar, Nav, Container} from 'react-bootstrap';
 const Navigation = () => {
     return ( 
+        /*Navigation bar, bootstrap is in use,
+        It contains direct links to the Home and Livestream page
+        It is responsive for all devices */
         <div>
            <Navbar collapseOnSelect expand="lg" bg="dark" variant="dark">
             <Container>

@@ -24,17 +24,17 @@ const LiveStream = () => {
 
     return (
        //background image
-       <div style={{ backgroundImage: `url(${background})`, backgroundSize: 'cover', backgroundRepeat: 'no-repeat' }}>
-        /*import the Navigation component in the LiveStream component*/
-        <Navigation />
+       //import the Navigation component in the LiveStream component
         //Create a container for the react video player
-       <Container fluid className="height center ">
-         //{info.LiveStreamUrl} and other codes similar to this is gotten from the API
-            <ReactPlayer url={info.LiveStreamUrl} className='border' width='70%' height= '80%'/>
+         //import the Footer component in the LiveStream component
+          //{info.LiveStreamUrl} and other codes similar to this is gotten from the API
+       <div style={{ backgroundImage: `url(${background})`, backgroundSize: 'cover', backgroundRepeat: 'no-repeat' }}>   
+        <Navigation />
+            <Container fluid ='md' className='center'>
+            <ReactPlayer url={info.LiveStreamUrl} className='border' width='65%' height= '65%'/>
             </Container>
             <p className='information'>SERVICE TITLE: <span className='span'>{info.LiveStreamTitle}</span></p>
             <p className='information'> ONLINE WORSHIPPERS COUNT: <span className='span'>{info.OnlineUsersCount}</span></p>
-        //import the Footer component in the LiveStream component
         <Footer />
        </div>
         
