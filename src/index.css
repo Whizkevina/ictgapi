@@ -1,6 +1,9 @@
 .height{
     height: 80vh;
 }
+.boxed{
+    padding: 2rem 0;
+}
 .maroon{
     background-color: #800000;
     color: white;
