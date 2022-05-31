@@ -32,7 +32,7 @@ const LiveStream = () => {
         <Navigation />
             <div className='boxed'>
             <Container fluid ='md' className= 'center'>
-            <ReactPlayer url={info.LiveStreamUrl} className='border' width='100%' height= '100%'/>
+            <ReactPlayer url= {info.LiveStreamUrl} className='border'/>
             </Container>
             <p className='information'>SERVICE TITLE: <span className='span'>{info.LiveStreamTitle}</span></p>
             <p className='information'> ONLINE WORSHIPPERS COUNT: <span className='span'>{info.OnlineUsersCount}</span></p>
