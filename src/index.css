@@ -2,7 +2,7 @@
     height: 80vh;
 }
 .boxed{
-    padding: 2rem 0;
+    padding: 1rem 0rem;
 }
 .maroon{
     background-color: #800000;
@@ -32,9 +32,9 @@ button{
 .border{
     border: 1px solid #333;
     background-color: #333;
-    margin-top: 3rem;
-    margin-bottom: 1.5rem;
-    max-width: 20rem;
+    margin-top: 2rem;
+    margin-bottom: 1rem;
+    max-width: 100%;
 }
 
 .information{
@@ -45,21 +45,21 @@ button{
     text-align: center;
     align-items: center;
     background-color: #333;
-    width: 50%;
+    width: 80%;
     margin-bottom: 1rem;
 }
 .span{
     padding: .2rem .4rem;
     border-radius: 5px;
     font-weight: 600;
+
 }
-@media screen and (min-width: 700px) {
-    .border{
-        max-width: 40rem;
-    }
-}
-@media screen and (min-width: 1200px) {
-    .border{
-        max-width: 50rem;
+
+@media screen and (max-width: 650px) {
+    .centeredd{
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        flex-direction: column;
     }
 }
