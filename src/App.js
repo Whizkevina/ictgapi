@@ -1,7 +1,8 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Home from "./Components/Home";
-import LiveStream from "./Components/LiveStream";
+import LiveService from "./Components/LiveService";
+import UserCheck from './Components/UserCheck';
 
 
 function App() {
@@ -10,7 +11,8 @@ function App() {
       <BrowserRouter>
       <Routes>
         <Route path="/" element={<Home />} />
-        <Route path="LiveStream" element={<LiveStream />} />
+        <Route path="UserCheck" element={<UserCheck />} />
+        <Route path="LiveService" element={<LiveService />} />
       </Routes>
         </BrowserRouter>
      </div>

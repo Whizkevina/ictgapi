@@ -4,7 +4,8 @@ import Footer from "./Footer";
 import { Container } from "react-bootstrap";
 import React, {useEffect, useState} from 'react';
 import ReactPlayer from 'react-player';
-const LiveStream = () => {
+// import React, { useEffect } from 'react'; // Import the useEffect hook
+const LiveService = () => {
     const [info, setInfo] = useState({});
     //url equals the API link
     const url = `https://ftapp.lfcww.org/api/Dashboard/togglelivestreamstate`;
@@ -18,9 +19,12 @@ const LiveStream = () => {
       } 
     }
 
-    useEffect(()=> {
+    // ...
+
+    useEffect(() => {
       getInfo();
-    }, []);
+    }); // Remove the empty dependency array
+
 
     return (
        //background image
@@ -32,7 +36,7 @@ const LiveStream = () => {
         <Navigation />
             <div className='boxed'>
             <Container className= 'center'>
-            <ReactPlayer url= {info.LiveStreamUrl} className='border' width="100%" height="100%"/>
+            {info.LiveStreamUrl && <ReactPlayer url= {info.LiveStreamUrl} className='border' width="100%" height="100%"/>}
             </Container>
             <p className='information'>SERVICE TITLE: <span className='span'>{info.LiveStreamTitle}</span></p>
             <p className='information'> ONLINE WORSHIPPERS COUNT: <span className='span'>{info.OnlineUsersCount}</span></p>
@@ -43,4 +47,4 @@ const LiveStream = () => {
      );
 }
  
-export default LiveStream;
+export default LiveService;

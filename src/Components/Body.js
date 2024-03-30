@@ -8,7 +8,7 @@ const Body = () => {
         <h1 className="lead">Living Faith Church Worldwide</h1>
         <p className="font-weight-light">Home of Signs and Wonders</p>
         
-        <Nav.Link href="/LiveStream" target='_blank'><button className="linkText btn btn-dark">LIVE SERVICE</button></Nav.Link>
+        <Nav.Link href="/UserCheck" target='_blank'><button className="linkText btn btn-dark">LIVE SERVICE</button></Nav.Link>
         
         </Container>
         </div>
