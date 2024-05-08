@@ -9,13 +9,13 @@ function App() {
   return (
     <div className="Container">
       <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="UserCheck" element={<UserCheck />} />
-        <Route path="LiveService" element={<LiveService />} />
-      </Routes>
-        </BrowserRouter>
-     </div>
+        <Routes>
+          <Route exact path="/" element={<Home />} />  {/* Added exact for root path */}
+          <Route path="/UserCheck" element={<UserCheck />} />
+          <Route path="/LiveService" element={<LiveService />} />
+        </Routes>
+      </BrowserRouter>
+    </div>
   );
 }
 

@@ -34,7 +34,7 @@ const LiveService = () => {
           //{info.LiveStreamUrl} and other codes similar to this is gotten from the API
        <div style={{ backgroundImage: `url(${background})`, backgroundSize: 'cover', backgroundRepeat: 'no-repeat' }}>   
         <Navigation />
-            <div className='boxed'>
+            <div className='boxed card-body'>
             <Container className= 'center'>
             {info.LiveStreamUrl && <ReactPlayer url= {info.LiveStreamUrl} className='border' width="100%" height="100%"/>}
             </Container>
