@@ -7,7 +7,7 @@ import LoadingSpinner from "./LoadingSpinner";
 import React, {useEffect, useState, useCallback, useRef} from 'react';
 import ReactPlayer from 'react-player';
 import config from '../config/config';
-import { handleApiError, formatViewerCount, isValidVideoUrl, getUserPreference, setUserPreference } from '../utils/helpers';
+import { handleApiError, isValidVideoUrl, getUserPreference, setUserPreference } from '../utils/helpers';
 // Temporarily disabled - will be used when we get API keys
 // import transcriptionService from '../services/TranscriptionService';
 
@@ -363,7 +363,7 @@ const LiveService = () => {
                         <p className="text-sm text-gray-300">Online Worshippers</p>
                         <div className="flex items-center">
                           <p className="font-bold text-2xl text-church-gold">
-                            {formatViewerCount(viewerCount || '0')}
+                            {viewerCount || '0'}
                           </p>
                           <div className="group relative">
                             <button 

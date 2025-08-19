@@ -6,6 +6,7 @@ import UserCheck from './Components/UserCheck';
 import AdminLiveService from './Components/AdminLiveService';
 import ErrorBoundary from './Components/ErrorBoundary';
 import { usePerformanceOptimizations, CriticalCSS } from './utils/performance';
+import { Analytics } from "@vercel/analytics/react"
 
 function App() {
   // Apply performance optimizations
@@ -14,6 +15,7 @@ function App() {
   return (
     <ErrorBoundary>
       <CriticalCSS />
+      <Analytics />
       <div className="App">
         <BrowserRouter>
           <Routes>
