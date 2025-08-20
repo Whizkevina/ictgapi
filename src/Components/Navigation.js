@@ -50,6 +50,16 @@ const Navigation = () => {
               </span>
               <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-church-gold transition-all duration-300 group-hover:w-full"></span>
             </Link>
+            <Link 
+              to="/youtube-service" 
+              className="relative text-gray-300 hover:text-church-gold transition-all duration-300 font-medium group"
+            >
+              <span className="flex items-center space-x-1">
+                <span>YouTube Service</span>
+                <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+              </span>
+              <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-church-gold transition-all duration-300 group-hover:w-full"></span>
+            </Link>
             
             {/* CTA Button */}
             <Link
@@ -102,6 +112,17 @@ const Navigation = () => {
                 <span className="flex items-center space-x-2">
                   <span>📺</span>
                   <span>Live Service</span>
+                  <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+                </span>
+              </Link>
+              <Link
+                to="/youtube-service"
+                className="text-gray-300 hover:text-church-gold block px-3 py-2 text-base font-medium transition-colors rounded-lg hover:bg-white/5"
+                onClick={() => setIsMenuOpen(false)}
+              >
+                <span className="flex items-center space-x-2">
+                  <span>🎬</span>
+                  <span>YouTube Service</span>
                   <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
                 </span>
               </Link>
