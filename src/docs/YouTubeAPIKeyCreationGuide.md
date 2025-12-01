@@ -1,6 +1,6 @@
 # YouTube API Key Creation Guide for ICTG Live Service
 
-The current YouTube API key (`AIzaSyAiPsXvbMOiMdHiLIfJ0m2h8DaMGmyEdgo`) is returning 403 Forbidden errors, which indicates it doesn't have proper permissions or has been restricted. Follow these steps to create a new API key and update the application:
+The current YouTube API key (configured via `REACT_APP_YOUTUBE_API_KEY`) is returning 403 Forbidden errors, which indicates it doesn't have proper permissions or has been restricted. Follow these steps to create a new API key and update the application:
 
 ## Step 1: Access Google Cloud Console
 

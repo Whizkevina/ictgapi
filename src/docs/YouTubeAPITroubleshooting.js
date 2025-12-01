@@ -4,7 +4,7 @@
  * Current Issue: 403 Forbidden error when accessing YouTube API
  * 
  * Problem:
- * The YouTube API key being used (AIzaSyAiPsXvbMOiMdHiLIfJ0m2h8DaMGmyEdgo) is receiving a 403 Forbidden
+ * The YouTube API key configured via REACT_APP_YOUTUBE_API_KEY is receiving a 403 Forbidden
  * response when attempting to access the YouTube Data API. This indicates an authentication or permission issue.
  * 
  * Possible causes:

@@ -32,39 +32,57 @@ export const isYouTubeUrl = (url) => {
  * @returns {string|null} The video ID or null if not found
  */
 export const extractYouTubeVideoId = (url) => {
-  if (!url) return null;
-  
+  if (!url || typeof url !== 'string') return null;
+
+  const trimmedUrl = url.trim();
+  if (!trimmedUrl) return null;
+
+  // Allow users to paste just the video ID without the full URL
+  if (!/[/:]/.test(trimmedUrl) && trimmedUrl.length >= 8) {
+    return trimmedUrl;
+  }
+
+  const ensureAbsoluteUrl = trimmedUrl.startsWith('http://') || trimmedUrl.startsWith('https://')
+    ? trimmedUrl
+    : `https://${trimmedUrl}`;
+
   // Handle youtu.be short URLs
-  if (url.includes('youtu.be/')) {
-    const parts = url.split('youtu.be/');
+  if (ensureAbsoluteUrl.includes('youtu.be/')) {
+    const parts = ensureAbsoluteUrl.split('youtu.be/');
     if (parts.length > 1) {
-      // Remove any query parameters
-      return parts[1].split(/[?&]/)[0];
+      return parts[1].split(/[?&#]/)[0];
     }
     return null;
   }
-  
-  // Handle standard youtube.com URLs
+
   try {
-    const urlObj = new URL(url);
-    if (urlObj.hostname.includes('youtube.com')) {
-      // For watch URLs
-      if (urlObj.pathname.includes('/watch')) {
-        return urlObj.searchParams.get('v');
+    const urlObj = new URL(ensureAbsoluteUrl);
+    if (!urlObj.hostname.includes('youtube.com')) {
+      return null;
+    }
+
+    if (urlObj.pathname.includes('/watch')) {
+      return urlObj.searchParams.get('v');
+    }
+
+    if (urlObj.pathname.includes('/embed/')) {
+      const parts = urlObj.pathname.split('/embed/');
+      if (parts.length > 1) {
+        return parts[1].split(/[?&#]/)[0];
       }
-      
-      // For embed URLs
-      if (urlObj.pathname.includes('/embed/')) {
-        const parts = urlObj.pathname.split('/embed/');
-        if (parts.length > 1) {
-          return parts[1].split(/[?&]/)[0];
-        }
+    }
+
+    if (urlObj.pathname.includes('/shorts/')) {
+      const parts = urlObj.pathname.split('/shorts/');
+      if (parts.length > 1) {
+        return parts[1].split(/[?&#]/)[0];
       }
     }
   } catch (error) {
-    console.error('Error parsing YouTube URL:', error);
+    // Swallow parsing errors silently; invalid URLs will simply return null
+    return null;
   }
-  
+
   return null;
 };
 

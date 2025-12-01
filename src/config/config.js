@@ -26,6 +26,25 @@ export const config = {
       tablet: '768px',
       desktop: '1024px'
     }
+  },
+
+  admin: {
+    password: process.env.REACT_APP_ADMIN_PASSWORD || '',
+    authToken: process.env.REACT_APP_ADMIN_AUTH_TOKEN || ''
+  },
+
+  stream: {
+    youtubeChannelId: process.env.REACT_APP_YOUTUBE_CHANNEL_ID || '',
+    youtubeApiKey: process.env.REACT_APP_YOUTUBE_API_KEY || '',
+    fallbackStreamUrl: process.env.REACT_APP_FALLBACK_STREAM_URL || ''
+  },
+
+  featureFlags: {
+    enableYouTube: process.env.REACT_APP_ENABLE_YOUTUBE !== 'false'
+  },
+
+  debug: {
+    youtubeApi: process.env.REACT_APP_DEBUG_YOUTUBE_API === 'true'
   }
 };
 

@@ -8,10 +8,13 @@ import React, {useEffect, useState, useCallback, useRef} from 'react';
 import ReactPlayer from 'react-player';
 import config from '../config/config';
 import { handleApiError, isValidVideoUrl, getUserPreference, setUserPreference } from '../utils/helpers';
-import YouTubeService from '../services/YouTubeService';
-import LivestreamService from '../services/LivestreamService';
 // Temporarily disabled - will be used when we get API keys
 // import transcriptionService from '../services/TranscriptionService';
+
+const LIVE_PAYLOAD_CACHE_KEY = 'ictg_live_payload_v1';
+const LIVE_PAYLOAD_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const VIEWER_COUNT_CACHE_KEY = 'ictg_viewer_count_v1';
+const VIEWER_ZERO_RESET_DELAY_MS = 60 * 1000; // 1 minute grace before dropping to zero
 
 const LiveService = () => {
     const [info, setInfo] = useState({});
@@ -20,13 +23,76 @@ const LiveService = () => {
     const [error, setError] = useState(null);
     const [elapsedTime, setElapsedTime] = useState(0);
     const [isLive, setIsLive] = useState(false);
-    const [youtubeData, setYoutubeData] = useState(null);
-    const [youtubeError, setYoutubeError] = useState(null);
     const [notificationsEnabled, setNotificationsEnabled] = useState(false);
     const [notificationPermission, setNotificationPermission] = useState('default');
     const [showNotificationModal, setShowNotificationModal] = useState(false);
     const notificationModalRef = useRef(null);
-    const currentVideoIdRef = useRef(null);
+    const prevIsLiveRef = useRef(false);
+    const hydratedFromCacheRef = useRef(false);
+    const lastStableViewerRef = useRef(0);
+    const pendingZeroResetRef = useRef(null);
+    const canUseNativeNotifications = typeof window !== 'undefined' && 'Notification' in window;
+
+    const persistPayloadCache = useCallback((payload) => {
+      if (typeof window === 'undefined') return;
+      try {
+        window.localStorage.setItem(
+          LIVE_PAYLOAD_CACHE_KEY,
+          JSON.stringify({ data: payload, timestamp: Date.now() })
+        );
+      } catch (storageError) {
+        console.warn('Unable to cache live payload:', storageError);
+      }
+    }, []);
+
+    const persistViewerCountCache = useCallback((count) => {
+      if (typeof window === 'undefined') return;
+      try {
+        window.localStorage.setItem(
+          VIEWER_COUNT_CACHE_KEY,
+          JSON.stringify({ count, timestamp: Date.now() })
+        );
+      } catch (storageError) {
+        console.warn('Unable to cache viewer count:', storageError);
+      }
+    }, []);
+
+    const applyViewerCount = useCallback((rawCount, { allowImmediateZero = false } = {}) => {
+      const parsedCount = Number.isFinite(rawCount) ? rawCount : 0;
+
+      if (parsedCount > 0) {
+        if (pendingZeroResetRef.current) {
+          clearTimeout(pendingZeroResetRef.current);
+          pendingZeroResetRef.current = null;
+        }
+        lastStableViewerRef.current = parsedCount;
+        setViewerCount(parsedCount);
+        persistViewerCountCache(parsedCount);
+        return parsedCount;
+      }
+
+      if (allowImmediateZero || lastStableViewerRef.current === 0) {
+        if (pendingZeroResetRef.current) {
+          clearTimeout(pendingZeroResetRef.current);
+          pendingZeroResetRef.current = null;
+        }
+        lastStableViewerRef.current = 0;
+        setViewerCount(0);
+        persistViewerCountCache(0);
+        return 0;
+      }
+
+      if (!pendingZeroResetRef.current) {
+        pendingZeroResetRef.current = setTimeout(() => {
+          lastStableViewerRef.current = 0;
+          setViewerCount(0);
+          persistViewerCountCache(0);
+          pendingZeroResetRef.current = null;
+        }, VIEWER_ZERO_RESET_DELAY_MS);
+      }
+
+      return lastStableViewerRef.current;
+    }, [persistViewerCountCache]);
     
     // Service notes can come from predefined data or AI transcription - TEMPORARILY DISABLED
     /* To be enabled when we get API keys for AI transcription
@@ -59,126 +125,50 @@ const LiveService = () => {
     const viewerCountInterval = 30000;
     const url = `${apiBaseUrl}${livestreamEndpoint}`;
 
-    // Define checkYouTubeLiveStatus first
-  const checkYouTubeLiveStatus = useCallback(async () => {
-    try {
-      const youtubeStatus = await YouTubeService.checkChannelLiveStatus();
-      
-      // Update YouTube-specific data state
-      setYoutubeData(youtubeStatus);
-      
-      // Check if we have an API key issue
-      if (youtubeStatus.apiKeyIssue) {
-        console.warn('YouTube API key has permission issues - using fallback logic');
-        setYoutubeError('YouTube API key authorization failed (403 Forbidden). Contact administrator.');
-        
-        // Use fallback logic - rely on the existing stream URL if any
-        if (info.LiveStreamUrl && isValidVideoUrl(info.LiveStreamUrl)) {
-          setIsLive(true);
-        } else {
-          setIsLive(false);
-          setInfo(prev => ({
-            ...prev,
-            LiveStreamUrl: null,
-            LiveStreamTitle: prev.LiveStreamTitle || "No Live Service Available"
-          }));
+    // Track livestream status directly from backend info payload
+    useEffect(() => {
+      const hasValidStream = !loading && info.LiveStreamUrl && isValidVideoUrl(info.LiveStreamUrl);
+      setIsLive(hasValidStream);
+    }, [loading, info.LiveStreamUrl]);
+
+    // Hydrate from cached payload so the UI isn't blank while waiting for the network
+    useEffect(() => {
+      if (typeof window === 'undefined') return;
+      try {
+        const cachedPayloadRaw = window.localStorage.getItem(LIVE_PAYLOAD_CACHE_KEY);
+        if (cachedPayloadRaw) {
+          const cachedPayload = JSON.parse(cachedPayloadRaw);
+          const payloadIsFresh = cachedPayload?.timestamp && (Date.now() - cachedPayload.timestamp) < LIVE_PAYLOAD_CACHE_TTL_MS;
+          if (cachedPayload?.data && payloadIsFresh) {
+            hydratedFromCacheRef.current = true;
+            setInfo(cachedPayload.data);
+            applyViewerCount(cachedPayload.data.OnlineUsersCount || 0, { allowImmediateZero: true });
+            setLoading(false);
+            return;
+          }
+          window.localStorage.removeItem(LIVE_PAYLOAD_CACHE_KEY);
         }
-        
-        // Make sure loading indicator is stopped
-        setLoading(false);
-        return;
-      }
-      
-      // If YouTube is live, use its data
-      if (youtubeStatus.isLive) {
-        setIsLive(true);
-        currentVideoIdRef.current = youtubeStatus.videoId;
-        
-        // Update viewer count from YouTube data
-        setViewerCount(youtubeStatus.viewerCount);
-        
-        // Update the backend with the YouTube stream info
-        try {
-          await LivestreamService.updateLivestreamStatus(
-            youtubeStatus.liveStreamUrl,
-            youtubeStatus.liveStreamTitle || "Live Service"
-          );
-          
-          // Update local state
-          setInfo(prev => ({
-            ...prev,
-            LiveStreamUrl: youtubeStatus.liveStreamUrl,
-            LiveStreamTitle: youtubeStatus.liveStreamTitle || prev.LiveStreamTitle
-          }));
-        } catch (updateError) {
-          console.error('Error updating livestream status:', updateError);
-        }
-      } else {
-        // Not live on YouTube, check if we have a fallback stream
-        const hasBackupStream = info.LiveStreamUrl && isValidVideoUrl(info.LiveStreamUrl);
-        
-        // If we're not live on YouTube and don't have a backup stream,
-        // update the backend to clear the livestream URL
-        if (!hasBackupStream && info.LiveStreamUrl !== null) {
-          try {
-            await LivestreamService.clearLivestreamStatus("No Live Service Available");
-            
-            // Update local state
-            setInfo(prev => ({
-              ...prev,
-              LiveStreamUrl: null,
-              LiveStreamTitle: "No Live Service Available"
-            }));
-          } catch (clearError) {
-            console.error('Error clearing livestream status:', clearError);
+        const cachedViewerRaw = window.localStorage.getItem(VIEWER_COUNT_CACHE_KEY);
+        if (cachedViewerRaw) {
+          const cachedViewer = JSON.parse(cachedViewerRaw);
+          const viewerIsFresh = cachedViewer?.timestamp && (Date.now() - cachedViewer.timestamp) < LIVE_PAYLOAD_CACHE_TTL_MS;
+          if (viewerIsFresh && Number.isFinite(cachedViewer?.count)) {
+            applyViewerCount(cachedViewer.count, { allowImmediateZero: true });
+          } else {
+            window.localStorage.removeItem(VIEWER_COUNT_CACHE_KEY);
           }
         }
-        
-        setIsLive(hasBackupStream);
-        
-        // Reset video ID reference if not live
-        currentVideoIdRef.current = null;
+      } catch (cacheError) {
+        console.warn('Unable to hydrate live service cache:', cacheError);
       }
-      
-      // Clear any previous errors if we didn't set one above
-      if (!youtubeStatus.apiKeyIssue) {
-        setYoutubeError(null);
-      }
-    } catch (error) {
-      console.error('Error checking YouTube live status:', error);
-      setYoutubeError(error.message);
-      
-      // Fall back to default stream if YouTube check fails
-      if (info.LiveStreamUrl && isValidVideoUrl(info.LiveStreamUrl)) {
-        setIsLive(true);
-      } else {
-        setIsLive(false);
-        
-        // If YouTube check fails and we don't have a stream,
-        // update the backend to clear the livestream URL
-        try {
-          await LivestreamService.clearLivestreamStatus("Service Unavailable");
-          
-          // Update local state
-          setInfo(prev => ({
-            ...prev,
-            LiveStreamUrl: null,
-            LiveStreamTitle: "Service Unavailable"
-          }));
-        } catch (clearError) {
-          console.error('Error clearing livestream status on failure:', clearError);
-        }
-      }
-      
-      // Make sure loading indicator is stopped in case of error
-      setLoading(false);
-    }
-  }, [info]);
+    }, [applyViewerCount]);
 
   // Main data fetching function wrapped in useCallback
-  const fetchData = useCallback(async (updateViewerCountOnly = false) => {
+  const fetchData = useCallback(async (updateViewerCountOnly = false, options = {}) => {
+    const { skipLoadingState = false } = options;
+    const shouldToggleLoading = !updateViewerCountOnly && !skipLoadingState;
     try {
-      if (!updateViewerCountOnly) {
+      if (shouldToggleLoading) {
         setLoading(true);
       }
       setError(null);
@@ -193,11 +183,12 @@ const LiveService = () => {
       
       if (updateViewerCountOnly) {
         // Only update the viewer count
-        setViewerCount(data.OnlineUsersCount || 0);
+        applyViewerCount(data.OnlineUsersCount || 0);
       } else {
         // Update all data and set initial viewer count
         setInfo(data);
-        setViewerCount(data.OnlineUsersCount || 0);
+        applyViewerCount(data.OnlineUsersCount || 0, { allowImmediateZero: true });
+        persistPayloadCache(data);
       }
     } catch (error) {
         console.error('Error fetching live service data:', error);
@@ -205,34 +196,18 @@ const LiveService = () => {
           setError(handleApiError(error, 'fetching live service data'));
         }
     } finally {
-      if (!updateViewerCountOnly) {
+      if (shouldToggleLoading) {
         setLoading(false);
       }
     }
-  }, [url]);
+  }, [url, applyViewerCount, persistPayloadCache]);
 
-  // Main content refresh effect - does initial load and then checks YouTube status
+  // Main content refresh effect - only does initial load, no polling
   useEffect(() => {
-    // Initial fetch for all data from API
-    const loadInitialData = async () => {
-      await fetchData(false);
-      
-      try {
-        // Immediately check YouTube status after getting initial data
-        // This ensures we have the most current state
-        await checkYouTubeLiveStatus();
-      } catch (error) {
-        console.error('Error checking YouTube status during initial load:', error);
-        // Make sure we're not stuck loading, even if YouTube check fails
-        setLoading(false);
-      }
-    };
-    
-    loadInitialData();
-    
+    fetchData(false, { skipLoadingState: hydratedFromCacheRef.current });
     // No interval for main content - we only need to load it once
     // This avoids unnecessary refreshes since only the viewer count needs to be dynamic
-  }, [fetchData, checkYouTubeLiveStatus]); // Include all dependencies
+  }, [fetchData]); // Include all dependencies
     
     // Function to handle copying service info to clipboard
     const copyServiceInfo = () => {
@@ -247,13 +222,9 @@ const LiveService = () => {
       // Get the service title from info or use a default
       const serviceTitle = info.LiveStreamTitle || 'Live Service';
       
-      // Determine if this is from YouTube
-      const streamSource = currentVideoIdRef.current ? 'YouTube Live' : 'Church Stream';
-      
       // Format the text using the dynamic service information
       const textToCopy = `SERVICE TITLE: ${serviceTitle} | ${formattedDate}\n`
-        + `ONLINE WORSHIPPERS COUNT: ${viewerCount}\n`
-        + `SOURCE: ${streamSource}`;
+        + `ONLINE WORSHIPPERS COUNT: ${viewerCount}`;
       
       // Copy to clipboard
       navigator.clipboard.writeText(textToCopy);
@@ -283,44 +254,23 @@ const LiveService = () => {
 
   
 
-  // Separate effect for YouTube status and viewer count updates
+  // Separate effect for viewer count updates
   useEffect(() => {
-    // Don't start polling until main data is loaded
+    // Don't start viewer count polling until main data is loaded
     if (loading) return;
     
-    // Set up polling for YouTube status and viewer count
-    const youtubeInterval = setInterval(() => {
-      // If we have a specific video ID, just update the viewer count
-      if (currentVideoIdRef.current) {
-        YouTubeService.getVideoViewerCount(currentVideoIdRef.current)
-          .then(count => {
-            if (count > 0) {
-              setViewerCount(count);
-            } else {
-              // If viewer count is 0, the stream might have ended
-              // Do a full check to verify
-              checkYouTubeLiveStatus();
-            }
-          })
-          .catch(error => {
-            console.error('Error getting video viewer count:', error);
-            // On error, do a full check
-            checkYouTubeLiveStatus();
-          });
-      } else {
-        // Otherwise check the full live status
-        checkYouTubeLiveStatus();
-      }
-    }, viewerCountInterval);
+    // Set up more frequent polling just for viewer count
+    const countInterval = setInterval(() => fetchData(true), viewerCountInterval);
     
-    // Fallback to API viewer count in case YouTube isn't available
-    const apiCountInterval = setInterval(() => fetchData(true), viewerCountInterval * 2);
-    
-    return () => {
-      clearInterval(youtubeInterval);
-      clearInterval(apiCountInterval);
-    };
-  }, [loading, fetchData, checkYouTubeLiveStatus, viewerCountInterval]);
+    return () => clearInterval(countInterval);
+  }, [loading, viewerCountInterval, fetchData]);
+
+  // Clean up any pending viewer-count reset timers on unmount
+  useEffect(() => () => {
+    if (pendingZeroResetRef.current) {
+      clearTimeout(pendingZeroResetRef.current);
+    }
+  }, []);
   
   // Effect for the live timer
   useEffect(() => {
@@ -394,11 +344,14 @@ const LiveService = () => {
     // Effect for initializing notification preferences
     useEffect(() => {
       // Check notification permission on component mount
-      if ('Notification' in window) {
+      if (canUseNativeNotifications) {
         setNotificationPermission(Notification.permission);
         // Load user preference from localStorage
         const savedPreference = getUserPreference('notifications_enabled', false);
         setNotificationsEnabled(savedPreference && Notification.permission === 'granted');
+      } else {
+        setNotificationPermission('denied');
+        setNotificationsEnabled(false);
       }
       
       // Handle click outside notification modal
@@ -410,33 +363,59 @@ const LiveService = () => {
       
       document.addEventListener('mousedown', handleClickOutside);
       return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, []);
+    }, [canUseNativeNotifications]);
     
+    const showNativeNotification = useCallback((title, options = {}) => {
+      if (!canUseNativeNotifications) {
+        // Fallback for devices/browsers without Notification API support
+        console.warn('Notification API is not supported in this browser.');
+        if (typeof window !== 'undefined' && window.alert) {
+          window.alert(`${title}\n\n${options.body || ''}`.trim());
+        }
+        return;
+      }
+      if (notificationPermission !== 'granted') {
+        return;
+      }
+      try {
+        new Notification(title, options);
+      } catch (notifyError) {
+        console.error('Unable to show notification:', notifyError);
+      }
+    }, [canUseNativeNotifications, notificationPermission]);
+
     // Function to request notification permission
     const requestNotificationPermission = async () => {
-      if ('Notification' in window) {
-        try {
-          const permission = await Notification.requestPermission();
-          setNotificationPermission(permission);
-          
-          if (permission === 'granted') {
-            setNotificationsEnabled(true);
-            setUserPreference('notifications_enabled', true);
-            // Show success notification
-            new Notification('Notifications Enabled', {
-              body: 'You will be notified when live services begin.',
-              icon: '/favicon.ico'
-            });
-          }
-        } catch (error) {
-          console.error('Error requesting notification permission:', error);
+      if (!canUseNativeNotifications) {
+        alert('This device does not support push notifications.');
+        setShowNotificationModal(false);
+        return;
+      }
+      try {
+        const permission = await Notification.requestPermission();
+        setNotificationPermission(permission);
+        
+        if (permission === 'granted') {
+          setNotificationsEnabled(true);
+          setUserPreference('notifications_enabled', true);
+          // Show success notification
+          showNativeNotification('Notifications Enabled', {
+            body: 'You will be notified when live services begin.',
+            icon: '/favicon.ico'
+          });
         }
+      } catch (error) {
+        console.error('Error requesting notification permission:', error);
       }
       setShowNotificationModal(false);
     };
     
     // Function to toggle notifications
     const toggleNotifications = () => {
+      if (!canUseNativeNotifications) {
+        alert('Notifications are not supported on this device or browser.');
+        return;
+      }
       if (notificationPermission !== 'granted') {
         // Show the notification permission modal
         setShowNotificationModal(true);
@@ -448,13 +427,37 @@ const LiveService = () => {
         
         if (newValue) {
           // Show success notification
-          new Notification('Notifications Enabled', {
+          showNativeNotification('Notifications Enabled', {
             body: 'You will be notified when live services begin.',
             icon: '/favicon.ico'
           });
         }
       }
     };
+
+    // Notify user automatically when stream goes live
+    useEffect(() => {
+      if (!notificationsEnabled || notificationPermission !== 'granted') {
+        prevIsLiveRef.current = isLive;
+        return;
+      }
+      if (isLive && !prevIsLiveRef.current) {
+        const title = info.LiveStreamTitle || 'Live Service Started';
+        showNativeNotification(title, {
+          body: 'Join the live worship experience now.',
+          icon: '/favicon.ico',
+          tag: 'live-service-start'
+        });
+      }
+      if (!isLive && prevIsLiveRef.current) {
+        showNativeNotification('Live Service Ended', {
+          body: 'The live stream has concluded. Thank you for worshipping with us.',
+          icon: '/favicon.ico',
+          tag: 'live-service-end'
+        });
+      }
+      prevIsLiveRef.current = isLive;
+    }, [isLive, notificationsEnabled, notificationPermission, info.LiveStreamTitle, showNativeNotification]);
 
 
     return (
@@ -493,7 +496,7 @@ const LiveService = () => {
             )}
             
             {/* Video Player */}
-            {!loading && !error && isLive && info.LiveStreamUrl && isValidVideoUrl(info.LiveStreamUrl) && (
+            {!loading && !error && info.LiveStreamUrl && isValidVideoUrl(info.LiveStreamUrl) && (
               <div className="space-y-6 animate-fade-in">
                 <div className="video-responsive">
                   <ReactPlayer 
@@ -548,8 +551,6 @@ const LiveService = () => {
                                 SERVICE TITLE: {info.LiveStreamTitle || 'Live Service'} | {new Date().toLocaleDateString('en-US', {day: 'numeric', month: 'long', year: 'numeric'})}
                                 
                                 ONLINE WORSHIPPERS COUNT: {viewerCount}
-                                
-                                SOURCE: {currentVideoIdRef.current ? 'YouTube Live' : 'Church Stream'}
                               </div>
                               <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 translate-y-1/2 rotate-45 w-2 h-2 bg-black/90"></div>
                             </div>
@@ -580,23 +581,6 @@ const LiveService = () => {
                       <span className="font-semibold">{isLive ? 'LIVE NOW' : 'OFFLINE'}</span>
                     </div>
                     
-                    {/* YouTube Indicator */}
-                    {currentVideoIdRef.current && (
-                      <div className="bg-red-100 text-red-800 text-xs font-medium px-2.5 py-0.5 rounded-full flex items-center">
-                        <svg className="w-3 h-3 mr-1" viewBox="0 0 24 24" fill="currentColor">
-                          <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
-                        </svg>
-                        YouTube
-                      </div>
-                    )}
-                    
-                    {/* Auto-sync Indicator */}
-                    <div className="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded-full flex items-center">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                      </svg>
-                      Auto-Sync
-                    </div>
                   </div>
                   
                   <div className="text-white/90 flex items-center space-x-1">
@@ -775,7 +759,7 @@ const LiveService = () => {
             )}
             
             {/* No Stream Available */}
-            {!loading && !error && !isLive && (
+            {!loading && !error && (!info.LiveStreamUrl || !isValidVideoUrl(info.LiveStreamUrl)) && (
               <div className="content-center">
                 <Card variant="default" className="p-8 max-w-md mx-auto text-center">
                   <div className="text-6xl mb-4">📺</div>
@@ -783,29 +767,6 @@ const LiveService = () => {
                   <p className="text-gray-600 mb-6">
                     There's no live service streaming at the moment. Please check back later.
                   </p>
-                  {youtubeError && (
-                    <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 my-4">
-                      <div className="flex">
-                        <div className="flex-shrink-0">
-                          <svg className="h-5 w-5 text-yellow-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                            <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                          </svg>
-                        </div>
-                        <div className="ml-3">
-                          <p className="text-sm text-yellow-700">
-                            {youtubeError.includes('403') 
-                              ? 'YouTube API key needs to be updated. Please contact the administrator.' 
-                              : 'We\'re having trouble checking the YouTube status. The service might still be available.'}
-                          </p>
-                          {youtubeError.includes('403') && (
-                            <p className="text-xs text-yellow-600 mt-1">
-                              Error: {youtubeError}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  )}
                   <Button 
                     variant="primary"
                     icon="🔄"
@@ -826,7 +787,7 @@ const LiveService = () => {
                         </div>
                         <div className="flex-grow text-left">
                           <h4 className="font-medium">Sunday Worship Service</h4>
-                          <p className="text-sm text-gray-500">Sunday, 10:00 AM</p>
+                          <p className="text-sm text-gray-500">Sunday, 06:00 AM</p>
                         </div>
                       </div>
                       <div className="flex items-center space-x-3 bg-gray-50 p-3 rounded-lg">
@@ -834,8 +795,8 @@ const LiveService = () => {
                           <span className="text-lg">🙏</span>
                         </div>
                         <div className="flex-grow text-left">
-                          <h4 className="font-medium">Midweek Prayer Meeting</h4>
-                          <p className="text-sm text-gray-500">Wednesday, 7:00 PM</p>
+                          <h4 className="font-medium">Midweek Service</h4>
+                          <p className="text-sm text-gray-500">Wednesday, 6:00 PM</p>
                         </div>
                       </div>
                     </div>

@@ -7,7 +7,9 @@ import Card from "./Card";
 import Button from "./Button";
 import LoadingSpinner from "./LoadingSpinner";
 import { config } from '../config/config';
-import { handleApiError, isValidVideoUrl } from '../utils/helpers';
+import { handleApiError } from '../utils/helpers';
+import { copyTextToClipboard } from '../utils/clipboard';
+import { buildLivestreamPayload, normalizeLivestreamUrl, getVideoIdFromUrl, buildManualInstructions } from '../utils/livestreamAdmin';
 
 import ErrorBoundary from './ErrorBoundary';
 
@@ -33,12 +35,11 @@ const AdminLiveService = () => {
   const updateEndpoint = config.api.endpoints.updateLivestream || livestreamEndpoint;
   const getUrl = `${apiBaseUrl}${livestreamEndpoint}`;
   const updateUrl = `${apiBaseUrl}${updateEndpoint}`;
+  const youtubeChannelIdDisplay = config.stream.youtubeChannelId || '[Set via REACT_APP_YOUTUBE_CHANNEL_ID]';
 
-  // Authentication token - in a production app, this should be stored more securely
-  const authToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJfaWQiOiI1ZDFiYWRiNGQzNmIzNTAwMTE3MTJjZmUiLCJpYXQiOjE1NjIzMTYyMTV9.y2I7rR2qcd3-kRsRNCq_xGiSisoGWIcJXqvVI7QMiwI";
-
-  // Secure access with a simple password
-  const ADMIN_PASSWORD = "ictgadmin"; // In production, use a more secure authentication method
+  // Authentication + admin configuration sourced from environment
+  const authToken = config.admin.authToken;
+  const adminPasswordFromConfig = config.admin.password;
   
   // Log the endpoint we're using for debugging
   console.log("Using GET endpoint:", getUrl);
@@ -47,6 +48,12 @@ const AdminLiveService = () => {
   useEffect(() => {
     // Fetch current data on initial load
     const fetchCurrentData = async () => {
+      if (!authToken) {
+        setErrorMessage('Admin auth token is not configured. Please update your environment variables.');
+        setIsLoading(false);
+        return;
+      }
+
       try {
         // Add authentication headers for GET request
         const response = await fetch(getUrl, {
@@ -94,7 +101,12 @@ const AdminLiveService = () => {
   const handlePasswordSubmit = (e) => {
     e.preventDefault();
     
-    if (adminPassword === ADMIN_PASSWORD) {
+    if (!adminPasswordFromConfig) {
+      setErrorMessage('Admin password is not configured. Please contact the site administrator.');
+      return;
+    }
+
+    if (adminPassword === adminPasswordFromConfig) {
       setIsAuthorized(true);
       setErrorMessage('');
     } else {
@@ -110,19 +122,18 @@ const AdminLiveService = () => {
     setErrorMessage('');
     setApiErrorDetails('');
 
-    // Convert YouTube links to embed format if needed
-    let processedUrl = formData.LiveStreamUrl;
-    
-    // Check if it's a standard YouTube URL and convert it to embed format
-    const youtubeRegex = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com|youtu\.be)\/(?:watch\?v=)?([^/&?]*)/;
-    const match = processedUrl.match(youtubeRegex);
-    
-    if (match && match[1]) {
-      // It's a YouTube URL, ensure it's in the correct format
-      processedUrl = `https://youtu.be/${match[1]}`;
-    }
+    const normalizedLiveStreamUrl = normalizeLivestreamUrl(formData.LiveStreamUrl);
+    const payload = buildLivestreamPayload({
+      ...formData,
+      LiveStreamUrl: normalizedLiveStreamUrl
+    });
 
     try {
+      if (!authToken) {
+        setErrorMessage('Admin auth token is not configured. Please update your environment variables.');
+        return;
+      }
+
       // CORS WORKAROUND - If the API doesn't allow direct requests from the browser
       // Uncomment the next line and comment out the fetch code block to use this approach
       /*
@@ -140,29 +151,6 @@ const AdminLiveService = () => {
       // Inspect request structure - based on your server's expectations
       // The actual data structure may need to be adjusted
       // Create a complete payload with all expected fields from the API
-      const payload = {
-        // Main fields that we're updating
-        LiveStreamUrl: processedUrl,
-        LiveStreamTitle: formData.LiveStreamTitle,
-        
-        // All other required fields with their default values
-        AppVersion: "1.17",
-        ForceUpdate: false,
-        EnableGeoLocation: true,
-        EnableGiving: true,
-        IncrementOnlineUsers: true,
-        OnlineUsersCount: 0,
-        TestimoniesPlaceholder: "Testify to the goodness of the Lord in your life. Share your testimony with the brethren and be blessed.",
-        AnnouncementsPlaceholder: "View announcements of upcoming church events and activities here.",
-        PrivacyPolicyUrl: "https://ictgftadmin.com.ng/privacy",
-        OnlineGivingUrl: "https://give.domi.org.ng",
-        DownloadsUrl: "https://faithtabernacle.org.ng/downloads",
-        OnlineBookStoreUrl: "https://domionlinestore.org",
-        DomiRadio: "http://radio.shoutcastmedia.net:8302/stream",
-        YouTubeClannelID: "UCyUKtrMdDilf74SPkCCKKtw",
-        YouTubeApiKey: "AIzaSyCdyw5bijwAUuSGD-UGXkU3GUgv9XZGopw"
-      };
-      
       console.log('Sending data:', payload);
       
       // Use PUT method as required by the API
@@ -217,7 +205,7 @@ const AdminLiveService = () => {
                 body: {
                   mode: "raw",
                   raw: JSON.stringify({
-                    LiveStreamUrl: processedUrl,
+                    LiveStreamUrl: payload.LiveStreamUrl,
                     LiveStreamTitle: formData.LiveStreamTitle
                   }, null, 4)
                 },
@@ -267,16 +255,36 @@ const AdminLiveService = () => {
     }
   };
 
-  // Extract video ID from URL for preview
-  const getVideoId = (url) => {
-    if (!isValidVideoUrl(url)) return null;
-    
-    const youtubeRegex = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com|youtu\.be)\/(?:watch\?v=)?([^/&?]*)/;
-    const match = url.match(youtubeRegex);
-    return match && match[1] ? match[1] : null;
+  const handleManualInstructionsClick = async () => {
+    const normalizedUrl = normalizeLivestreamUrl(formData.LiveStreamUrl);
+    const payloadForManual = buildLivestreamPayload({
+      ...formData,
+      LiveStreamUrl: normalizedUrl
+    });
+
+    const fallbackEndpoints = [
+      `${apiBaseUrl}/Dashboard/togglelivestreamstate`,
+      `${apiBaseUrl}/Dashboard/update-livestream`
+    ];
+
+    const manualInstructions = buildManualInstructions({
+      payload: payloadForManual,
+      updateUrl,
+      authToken,
+      fallbackEndpoints
+    });
+
+    try {
+      await copyTextToClipboard(manualInstructions);
+      alert(`${manualInstructions}\n\n(Instructions copied to clipboard!)`);
+    } catch (clipboardError) {
+      console.error('Unable to copy manual instructions to clipboard.', clipboardError);
+      alert(`${manualInstructions}\n\n(Could not copy automatically. Please copy the text manually.)`);
+    }
   };
-  
-  const videoId = getVideoId(formData.LiveStreamUrl);
+
+  // Extract video ID from URL for preview
+  const videoId = getVideoIdFromUrl(formData.LiveStreamUrl);
 
   return (
     <ErrorBoundary>
@@ -464,7 +472,7 @@ const AdminLiveService = () => {
                         name="AppVersion"
                         value="1.17"
                         disabled
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 text-gray-700"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 text-black-700"
                       />
                     </div>
                     
@@ -490,16 +498,16 @@ const AdminLiveService = () => {
                         type="text"
                         id="DomiRadio"
                         name="DomiRadio"
-                        value="http://radio.shoutcastmedia.net:8302/stream"
+                        value="https://streams.domimedia.org/domi_radio_english/live.m3u8"
                         disabled
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 text-gray-700"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 text-black-700"
                       />
                     </div>
                   </div>
                   
                   <details className="mt-3">
                     <summary className="cursor-pointer text-blue-700 font-medium">View all 16 API fields</summary>
-                    <div className="mt-3 p-3 bg-white rounded border border-blue-100 text-xs font-mono">
+                    <div className="mt-3 p-3 bg-black rounded border border-blue-100 text-xs font-mono">
                       <pre className="whitespace-pre-wrap overflow-auto max-h-48">
 {`{
   "AppVersion": "1.17",
@@ -510,15 +518,15 @@ const AdminLiveService = () => {
   "OnlineUsersCount": 0,
   "TestimoniesPlaceholder": "...",
   "AnnouncementsPlaceholder": "...",
-  "PrivacyPolicyUrl": "https://ictgftadmin.com.ng/privacy",
+  "PrivacyPolicyUrl": "https://wwma-privacy.netlify.app/",
   "OnlineGivingUrl": "https://give.domi.org.ng",
   "DownloadsUrl": "https://faithtabernacle.org.ng/downloads",
   "OnlineBookStoreUrl": "https://domionlinestore.org",
-  "DomiRadio": "http://radio.shoutcastmedia.net:8302/stream",
-  "LiveStreamUrl": "[Your YouTube URL]",
-  "LiveStreamTitle": "[Your Title]",
-  "YouTubeClannelID": "UCyUKtrMdDilf74SPkCCKKtw",
-  "YouTubeApiKey": "AIzaSyCdyw5bijwAUuSGD-UGXkU3GUgv9XZGopw"
+  "DomiRadio": "https://streams.domimedia.org/domi_radio_english/live.m3u8",
+  "LiveStreamUrl": "${formData.LiveStreamUrl}",
+  "LiveStreamTitle": "${formData.LiveStreamTitle}",
+  "YouTubeClannelID": "${youtubeChannelIdDisplay}",
+  "YouTubeApiKey": "[Stored securely via REACT_APP_YOUTUBE_API_KEY]"
 }`}
                       </pre>
                     </div>
@@ -535,62 +543,7 @@ const AdminLiveService = () => {
                     type="button"
                     variant="outline"
                     disabled={isSaving}
-                    onClick={() => {
-                      // Process the URL to ensure it's in the correct format
-                      let processedUrl = formData.LiveStreamUrl;
-                      const youtubeRegex = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com|youtu\.be)\/(?:watch\?v=)?([^/&?]*)/;
-                      const match = processedUrl.match(youtubeRegex);
-                      if (match && match[1]) {
-                        processedUrl = `https://youtu.be/${match[1]}`;
-                      }
-                      
-                      const manualInstructions = `
-API Update Information (Use in Postman or similar API client):
-
-URL: ${updateUrl}
-Method: PUT (Important: Must use PUT, not POST)
-Headers:
-  Content-Type: application/json
-  x-auth-token: ${authToken}
-
-Body:
-{
-  "LiveStreamUrl": "${processedUrl}",
-  "LiveStreamTitle": "${formData.LiveStreamTitle}",
-  "AppVersion": "1.17",
-  "ForceUpdate": false,
-  "EnableGeoLocation": true,
-  "EnableGiving": true,
-  "IncrementOnlineUsers": true,
-  "OnlineUsersCount": 0,
-  "TestimoniesPlaceholder": "Testify to the goodness of the Lord in your life. Share your testimony with the brethren and be blessed.",
-  "AnnouncementsPlaceholder": "View announcements of upcoming church events and activities here.",
-  "PrivacyPolicyUrl": "https://ictgftadmin.com.ng/privacy",
-  "OnlineGivingUrl": "https://give.domi.org.ng",
-  "DownloadsUrl": "https://faithtabernacle.org.ng/downloads",
-  "OnlineBookStoreUrl": "https://domionlinestore.org",
-  "DomiRadio": "http://radio.shoutcastmedia.net:8302/stream",
-  "YouTubeClannelID": "UCyUKtrMdDilf74SPkCCKKtw",
-  "YouTubeApiKey": "AIzaSyCdyw5bijwAUuSGD-UGXkU3GUgv9XZGopw"
-}
-
-Alternative endpoints to try if the above fails:
-1. ${apiBaseUrl}/Dashboard/togglelivestreamstate
-2. ${apiBaseUrl}/Dashboard/update-livestream
-                      `;
-                      
-                      const instructionsElement = document.createElement('textarea');
-                      instructionsElement.value = manualInstructions;
-                      instructionsElement.setAttribute('readonly', '');
-                      instructionsElement.style.position = 'absolute';
-                      instructionsElement.style.left = '-9999px';
-                      document.body.appendChild(instructionsElement);
-                      instructionsElement.select();
-                      document.execCommand('copy');
-                      document.body.removeChild(instructionsElement);
-                      
-                      alert(manualInstructions + "\n\n(Instructions copied to clipboard!)");
-                    }}
+                    onClick={handleManualInstructionsClick}
                   >
                     Show Manual Instructions
                   </Button>

@@ -3,14 +3,15 @@
  */
 
 import config from '../config/config';
+import { buildLivestreamPayload } from '../utils/livestreamAdmin';
 
 // API settings
 const apiBaseUrl = config.api.baseUrl;
 const updateEndpoint = config.api.endpoints.updateLivestream;
 const updateUrl = `${apiBaseUrl}${updateEndpoint}`;
 
-// Authentication token
-const authToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJfaWQiOiI1ZDFiYWRiNGQzNmIzNTAwMTE3MTJjZmUiLCJpYXQiOjE1NjIzMTYyMTV9.y2I7rR2qcd3-kRsRNCq_xGiSisoGWIcJXqvVI7QMiwI";
+// Authentication token sourced from environment/config
+const authToken = config.admin.authToken;
 
 /**
  * Update the livestream status in the backend
@@ -21,28 +22,14 @@ const authToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJfaWQiOiI1ZDFiYWRiNGQz
 export const updateLivestreamStatus = async (livestreamUrl, livestreamTitle) => {
   try {
     // Create complete payload with all expected fields
-    const payload = {
-      // Main fields that we're updating
+    if (!authToken) {
+      throw new Error('Admin auth token is not configured. Please set REACT_APP_ADMIN_AUTH_TOKEN.');
+    }
+
+    const payload = buildLivestreamPayload({
       LiveStreamUrl: livestreamUrl,
-      LiveStreamTitle: livestreamTitle || "No Live Service",
-      
-      // All other required fields with their default values
-      AppVersion: "1.17",
-      ForceUpdate: false,
-      EnableGeoLocation: true,
-      EnableGiving: true,
-      IncrementOnlineUsers: true,
-      OnlineUsersCount: 0,
-      TestimoniesPlaceholder: "Testify to the goodness of the Lord in your life. Share your testimony with the brethren and be blessed.",
-      AnnouncementsPlaceholder: "View announcements of upcoming church events and activities here.",
-      PrivacyPolicyUrl: "https://ictgftadmin.com.ng/privacy",
-      OnlineGivingUrl: "https://give.domi.org.ng",
-      DownloadsUrl: "https://faithtabernacle.org.ng/downloads",
-      OnlineBookStoreUrl: "https://domionlinestore.org",
-      DomiRadio: "http://radio.shoutcastmedia.net:8302/stream",
-      YouTubeClannelID: "UCyUKtrMdDilf74SPkCCKKtw",
-      YouTubeApiKey: "AIzaSyCdyw5bijwAUuSGD-UGXkU3GUgv9XZGopw"
-    };
+      LiveStreamTitle: livestreamTitle || 'No Live Service'
+    });
 
     // Use PUT method as required by the API
     const response = await fetch(updateUrl, {
