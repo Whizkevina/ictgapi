@@ -50,7 +50,7 @@ const Navigation = () => {
               </span>
               <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-church-gold transition-all duration-300 group-hover:w-full"></span>
             </Link>
-            <Link 
+            {/* <Link 
               to="/youtube-service" 
               className="relative text-gray-300 hover:text-church-gold transition-all duration-300 font-medium group"
             >
@@ -59,7 +59,7 @@ const Navigation = () => {
                 <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
               </span>
               <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-church-gold transition-all duration-300 group-hover:w-full"></span>
-            </Link>
+            </Link> */}
             
             {/* CTA Button */}
             <Link
