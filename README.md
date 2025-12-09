@@ -1,8 +1,35 @@
-# ICTG PROJECT - Consuming Winners API
-The aim of the project is to consume the API, so as to view and compute the online viewers count for each service streamed online.
+# ICTG PROJECT - Winners Live Service Platform
 
+A modern React application for consuming the Winners API to view and track online viewers count for live church services.
 
-## Programming Language Used:
+## ✨ Recent Improvements (August 2025)
+
+### 🚨 Critical Fixes
+- ✅ Fixed infinite loop in LiveService component that was causing excessive API calls
+- ✅ Improved navigation consistency by using React Router properly
+- ✅ Fixed UserCheck component logic and navigation flow
+- ✅ Added proper error boundaries to catch and handle component errors
+
+### 🔧 Performance & Quality Enhancements
+- ✅ Added loading states and error handling for better UX
+- ✅ Implemented environment configuration for API settings
+- ✅ Added utility functions for common operations
+- ✅ Improved responsive design for mobile devices
+- ✅ Added polling mechanism for real-time updates (30 seconds interval)
+
+### 🎨 UI/UX Improvements
+- ✅ Added loading spinners and better error messages
+- ✅ Improved button interactions with hover effects
+- ✅ Better responsive video player container
+- ✅ Enhanced mobile experience with optimized layouts
+
+### 🛡️ Code Quality
+- ✅ Added proper dependency arrays in useEffect hooks
+- ✅ Implemented consistent error handling across components
+- ✅ Added configuration management
+- ✅ Improved code organization with utils and config folders
+
+## 🚀 Getting Started
 
 This project was built with React and bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
 
