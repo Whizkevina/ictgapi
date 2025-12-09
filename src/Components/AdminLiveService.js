@@ -470,7 +470,7 @@ const AdminLiveService = () => {
                         type="text"
                         id="AppVersion"
                         name="AppVersion"
-                        value="1.17"
+                        value="1.30"
                         disabled
                         className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 text-black-700"
                       />
@@ -510,7 +510,7 @@ const AdminLiveService = () => {
                     <div className="mt-3 p-3 bg-black rounded border border-blue-100 text-xs font-mono">
                       <pre className="whitespace-pre-wrap overflow-auto max-h-48">
 {`{
-  "AppVersion": "1.17",
+  "AppVersion": "1.30",
   "ForceUpdate": false,
   "EnableGeoLocation": true,
   "EnableGiving": true,
@@ -526,7 +526,7 @@ const AdminLiveService = () => {
   "LiveStreamUrl": "${formData.LiveStreamUrl}",
   "LiveStreamTitle": "${formData.LiveStreamTitle}",
   "YouTubeClannelID": "${youtubeChannelIdDisplay}",
-  "YouTubeApiKey": "[Stored securely via REACT_APP_YOUTUBE_API_KEY]"
+  "YouTubeApiKey": "${youtubeApiKeyDisplay}"
 }`}
                       </pre>
                     </div>
