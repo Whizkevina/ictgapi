@@ -36,7 +36,8 @@ const AdminLiveService = () => {
   const getUrl = `${apiBaseUrl}${livestreamEndpoint}`;
   const updateUrl = `${apiBaseUrl}${updateEndpoint}`;
   const youtubeChannelIdDisplay = config.stream.youtubeChannelId || '[Set via REACT_APP_YOUTUBE_CHANNEL_ID]';
-
+  const youtubeApiKeyDisplay = config.stream.youtubeApiKey || '[Set via env]"
+  
   // Authentication + admin configuration sourced from environment
   const authToken = config.admin.authToken;
   const adminPasswordFromConfig = config.admin.password;
