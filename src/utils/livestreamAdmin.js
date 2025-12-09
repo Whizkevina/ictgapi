@@ -2,7 +2,7 @@ import { config } from '../config/config';
 import YouTubeFallbackHandler from './YouTubeFallbackHandler';
 
 const STATIC_PAYLOAD_FIELDS = {
-  AppVersion: '1.17',
+  AppVersion: '1.30',
   ForceUpdate: false,
   EnableGeoLocation: true,
   EnableGiving: true,
